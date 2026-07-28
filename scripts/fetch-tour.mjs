@@ -51,13 +51,17 @@ for (const [region, codes] of Object.entries(REGION_AREAS)) {
     const spots = await fetchArea(code, 12, 50)
     for (const it of spots) {
       if (!it.firstimage || !it.mapx || !it.mapy) continue
+      const lat = Number(it.mapy)
+      const lng = Number(it.mapx)
+      // 한국 영역 밖 좌표(잘못된 데이터) 제거
+      if (!(lat >= 33 && lat <= 39 && lng >= 124 && lng <= 132)) continue
       all.push({
         id: it.contentid,
         title: it.title,
         region,
         addr: it.addr1 || '',
-        lat: Number(it.mapy),
-        lng: Number(it.mapx),
+        lat,
+        lng,
         image: it.firstimage,
         cat1: it.cat1, cat2: it.cat2, cat3: it.cat3,
         tel: it.tel || '',
@@ -67,9 +71,12 @@ for (const [region, codes] of Object.entries(REGION_AREAS)) {
   }
 }
 
-// dedupe by id
+// dedupe by 제목+주소 (같은 장소 중복 제거)
 const seen = new Set()
-const uniq = all.filter((s) => (seen.has(s.id) ? false : seen.add(s.id)))
+const uniq = all.filter((s) => {
+  const k = `${s.title}|${s.addr}`
+  return seen.has(k) ? false : seen.add(k)
+})
 
 writeFileSync(new URL('../scripts/spots-raw.json', import.meta.url), JSON.stringify(uniq, null, 2))
 

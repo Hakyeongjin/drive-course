@@ -33,7 +33,24 @@ export default function App() {
   const [themes, setThemes] = useState<Theme[]>([])
   const [seasons, setSeasons] = useState<Season[]>([])
   const [cats, setCats] = useState<string[]>([])
+  const [cities, setCities] = useState<string[]>([])
   const [visible, setVisible] = useState(PAGE)
+
+  const resetPage = () => setVisible(PAGE)
+
+  // 선택한 지역의 도시(시군구) 목록 — 명소 데이터 기준, 많은 순 [area, count]
+  const regionCities = useMemo(() => {
+    if (region === '전체') return [] as [string, number][]
+    const m: Record<string, number> = {}
+    for (const s of SPOTS) if (s.region === region) m[s.area] = (m[s.area] || 0) + 1
+    return Object.entries(m).sort((a, b) => b[1] - a[1])
+  }, [region])
+
+  const changeRegion = (r: Region | '전체') => {
+    setRegion(r)
+    setCities([]) // 지역이 바뀌면 도시 선택 초기화
+    resetPage()
+  }
 
   const courses = useMemo(
     () =>
@@ -51,13 +68,11 @@ export default function App() {
       SPOTS.filter(
         (s) =>
           (region === '전체' || s.region === region) &&
-          (cats.length === 0 || cats.includes(s.cat)),
+          (cats.length === 0 || cats.includes(s.cat)) &&
+          (cities.length === 0 || cities.includes(s.area)),
       ),
-    [region, cats],
+    [region, cats, cities],
   )
-
-  // 필터가 바뀌면 페이지 초기화
-  const resetPage = () => setVisible(PAGE)
 
   return (
     <div className="app">
@@ -88,14 +103,42 @@ export default function App() {
         <section className="filters">
           <div className="filter-group">
             <span className="filter-label">지역 — 지도에서 눌러보세요</span>
-            <RegionMap
-              value={region}
-              onChange={(r) => {
-                setRegion(r)
-                resetPage()
-              }}
-            />
+            <RegionMap value={region} onChange={changeRegion} />
           </div>
+
+          {/* 도시 세부 선택 — 명소 탭 + 특정 지역 선택 시 */}
+          {tab === 'spot' && region !== '전체' && regionCities.length > 0 && (
+            <div className="filter-group">
+              <span className="filter-label">
+                도시 <span className="filter-sub">— {region} 세부 지역</span>
+                {cities.length > 0 && (
+                  <button
+                    className="clear-link"
+                    onClick={() => {
+                      setCities([])
+                      resetPage()
+                    }}
+                  >
+                    선택 지우기
+                  </button>
+                )}
+              </span>
+              <div className="chips city-chips">
+                {regionCities.map(([area, count]) => (
+                  <button
+                    key={area}
+                    className={cities.includes(area) ? 'chip active' : 'chip'}
+                    onClick={() => {
+                      setCities(toggle(cities, area))
+                      resetPage()
+                    }}
+                  >
+                    {area} <span className="chip-count">{count}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           {tab === 'course' ? (
             <>
